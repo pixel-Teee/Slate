@@ -413,6 +413,276 @@ PopupContent，要尝试并托管的小部件覆盖在小部件的顶部。
 virtual TSharedPtr<FPopupLayer> OnVisualizePopup(const TSharedRef<SWidget>& PopupContent);
 ```
 
+---
+
+被调用，当Slate检测一个widget开始被拖(dragged)。
+
+用法：
+
+一个widget可以请求Slate去检测一个drag。
+
+OnMouseDown()答复，使用FReply::Handled().DetectDrag(SharedThis(this))
+
+Slate将么发送一个OnDragDetected()事件或者什么都不做。
+
+如果用户释放了一个鼠标按钮或者离开widget在一个拖动(drag)被触发(可能用户开始在一个非常的边缘)，那么没有事件将被发送。
+
+
+
+InMyGeometry，Widget几何。
+
+InMouseEvent，触发drag的MouseMove。
+
+```c++
+virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
+```
+
+---
+
+## Drag And Drop(DragDrop)
+
+
+
+被调用，在drag和drop，当drop(落下)进入一个widget。
+
+
+
+进入/离开 事件在slate意味着作为轻量的通知。
+
+那么我们不想去捕获鼠标或者设置焦点作为对这些的响应。
+
+然而，OnDragEnter必须也支持外部的APIs(例如，OLE Drag/Drop)
+
+这些要求我们让它们知道是否我们可以处理内容，在被抓取OnDragEnter。
+
+
+
+妥协是去返回一个can_handled/cannot_handle布尔值，而不是一个完整的FReply。
+
+
+
+MyGeometry，接收事件的widget的几何。
+
+DragDropEvent，drag和drop事件。
+
+返回一个reply，表示是否DragDropEvent的内容可以潜在地被处理通过这个widget。
+
+```c++
+virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent);
+```
+
+---
+
+被调用在drag和drop，当drag离开一个widget。
+
+DragDropEvent，drag和drop事件。
+
+```c++
+virtual void OnDragLeave(const FDragDropEvent& DragDropEvent);
+```
+
+
+
+被调用在drag和drop的事件，当鼠标被抓取拖过一个widget。
+
+MyGeometry，接受事件的widget的几何。
+
+DragDropEvent，drag和drop事件。
+
+返回一个回复，表示是否这个事件被处理。
+
+```c++
+virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent);
+```
+
+
+
+---
+
+被调用，当用户放下什么东西在一个widget，终止drag和drop。
+
+MyGeometry，接受事件的widget的几何。
+
+DragDropEvent，drag和drop事件。
+
+返回一个回复，表示是否这个事件被处理。
+
+```c++
+virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent);
+```
+
+
+
+## TOUCH and GESTURES
+
+触摸还有手势
+
+
+
+被调用，当用户执行一个手势在一个trackpad(触控板)。这个事件是冒泡的。
+
+GestureEvent，手势事件。
+
+返回是否一个事件是否冒泡，伴随着可能的行为。
+
+```c++
+virtual FReply OnTouchGesture(const FGeometry& MyGeometry, const FPointerEvent& GestureEvent);
+```
+
+---
+
+被调用，当一个touchpad(触摸板)开始的时候(手指向下)，就是可以用笔在屏幕上画画的。
+
+InTouchEvent，触摸事件生成的。
+
+```c++
+virtual FReply OnTouchStarted(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent);
+```
+
+---
+
+被调用当一个触摸板触摸被移开的时候(鼠标移开的时候)。
+
+InTouchEvent，生成的触摸事件。
+
+```c++
+virtual FReply OnTouchMoved(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent);
+```
+
+---
+
+被调用，当一个触摸板触摸被终止(手指抬起(lifted))。
+
+InTouchEvent，生成的触摸事件。
+
+```c++
+virtual FReply OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent);
+```
+
+---
+
+被调用，当一个触摸板强迫改变的时候。
+
+InTouchEvent，生成的触摸事件。
+
+```c++
+virtual FReply OnTouchForceChanged(const FGeometry& MyGeometry, const FPointerEvent& TouchEvent);
+```
+
+---
+
+被调用，当一个触摸板，在TouchStarted移动后。
+
+InTouchEvent，生成的触摸事件。
+
+```c++
+virtual FReply OnTouchFirstMove(const FGeometry& MyGeometry, const FPointerEvent& TouchEvent);
+```
+
+---
+
+被调用，当motion(动作)被检测的时候(控制器或设备)
+
+例如，有人倾斜或者摇晃控制器。
+
+InMotionEvent，生成的motion事件。
+
+```c++
+virtual FReply OnMotionDetected(const FGeometry& MyGeometry, const FMotionEvent& InMotionEvent);
+```
+
+---
+
+被调用，检测是否我们应当渲染焦点画刷(focus brush)。
+
+InFocusCause，焦点的结果。
+
+```c++
+virtual TOptional<bool> OnQueryShowFocus(const EFocusCause InFocusCause) const;
+```
+
+---
+
+Popups可以显示在一个新的OS WINDOW或者通过一个OVERLAY在一个存在的window。
+
+这个可以被显示地设置在SMenuAnchor，或者可以被决定，通过一个scoping widget。
+
+一个scoping widget可以回复OnQueryPopupMethod()去驱动所有它的子代poup方法。
+
+
+
+全屏的游戏不能够传唤一个新窗口，那么游戏SViewports将回复EPopupMethod::UserCurrentWindow。
+
+这个使得所有在它们的menu anchors使用现在的窗口。
+
+```c++
+virtual FPopupMethodReply OnQueryPopupMethod() const;
+```
+
+---
+
+
+
+一个不知道有什么用的函数
+
+```C++
+virtual TSharedPtr<FVirtualPointerPosition> TranslateMouseCoordinateForCustomHitTestChild(const TSharedRef<SWidget>& ChildWidget, const FGeometry& MyGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate) const;
+```
+
+转换鼠标坐标对于自定义的碰撞检测儿子。
+
+---
+
+所有的指针(鼠标，触摸，触笔(stylvs)，等)事件已经从该帧路由(routed)。
+
+这是一个widget的机会**去执行任何累积的数据。**
+
+```C++
+virtual void OnFinishedPointerInput();
+```
+
+---
+
+所有的键(键盘，gamepay，joystick，等等)输入从这帧已经被路由。
+
+这是一个widget的机会**去执行任何累积的数据。**
+
+```c++
+virtual void OnFinishedKeyInput();
+```
+
+---
+
+被调用，当鼠标移过widget的window，去决定是否我们应当报告是否OS确切的特性应当被激活在这个位置(例如一个title bar grip，系统菜单，等等)。
+
+通常，你不需要去重载这个函数。
+
+---
+
+返回，光标所在的窗口区域，或者EWindowZone::Unspecified，如果没有特殊的行为被需要。
+
+```c++
+virtual EWindowZone::Type GetWindowZoneOverride() const;
+```
+
+---
+
+accessibility n.可访问性
+
+```c++
+virtual TSharedRef<class FSlateAccessibleWidget> CreateAccessibleWidget();
+```
+
+---
+
+
+
+
+
+
+
+
+
 
 
 
