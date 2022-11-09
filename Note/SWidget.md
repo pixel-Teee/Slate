@@ -941,6 +941,276 @@ void UpdateWidgetProxy(int32 NewLayerId, FSlateCachedElementsHandle& CacheHandle
 
 ---
 
+```c++
+UE_DEPRECATED(4.24, "GetRelativeLayoutScale(int32 ChildIndex, float LayoutScaleMultiplier), your widget will also need to set bHasRelativeLayoutScale in their Construct/ctor.")
+//你的widget将也需要去设置bHasRelativeLayoutScale在它们的构造函数/ctor
+virtual float GetRelativeLayoutScale(const FSlotBase& Child, float LayoutScaleMultiplier) const { return 1.0f; }
+```
+
+---
+
+```c++
+//儿子的scale相对于这个widget是多少
+virtual float GetRelativeLayoutScale(const int32 ChildIndex, float LayoutScaleMultipler) const;
+```
+
+---
+
+非虚拟入口点对于arrange children。保证通用的工作被执行，在调用虚拟ArrangeChildren函数。
+
+计算所有的儿子的几何，并且填充ArrangedChildren列表，使用它们的值。
+
+每个类型的layout panel应当安排儿子依据需要的行为。
+
+AllottedGeometry，分配的几何对于这个widget通过它的父亲。
+
+ArrangedChildren，数组去添加WidgetGeometries，表示arranged children。
+
+```c++
+void ArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const;
+```
+
+---
+
+每个有儿子的widget必须实现这个方法。这个允许遍历Widget的儿子，依据它们实际如何存储的。
+
+```c++
+//todo Slate：考虑命名为GetVisibleChildren(不是所有的儿子将会被返回在所有的情况)
+virtual FChildren* GetChildren() = 0;
+```
+
+---
+
+```c++
+virtual FChildren* GetAllChildren() { return GetChildren(); }
+```
+
+---
+
+检测是否这个widget支持键盘焦点，重载这个在派生类。
+
+返回真，如果这个widget可以输入键盘焦点。
+
+```c++
+virtual bool SupportsKeyboardFocus() const;
+```
+
+---
+
+获取是否有确切的用户有这个聚焦的widget，并且如果是，焦点的类型。
+
+返回，optional将被设置为聚焦的情况，如果unset这个widget，不会有焦点。
+
+```C++
+TOptional<EFocusCause> HasUserFocus(int32 UserIndex) const;
+```
+
+---
+
+获取是否任何用户有这个聚焦的widget，并且如果是，焦点的类型(第一个被找到)。
+
+返回，optional将被设置focus情况，如果unset这个widget，不会有焦点。
+
+```c++
+TOptional<EFocusCause> HasAnyUserFocus() const;
+```
+
+---
+
+返回是否这个widget有任何带键盘焦点的子代。
+
+```c++
+bool HasFocusedDescendants() const;
+```
+
+---
+
+返回是否任何用户有这个聚焦的widget，或者任何聚焦的子代。
+
+```c++
+bool HasAnyUserFocusOrFocusedDescendants() const;
+```
+
+---
+
+检测是否这个widget是现在的鼠标捕获者。
+
+返回，是否这个widget已经捕获了鼠标。
+
+```c++
+bool HasMouseCapture() const;
+```
+
+---
+
+检测是否这个widget有鼠标捕获从提供的用户。
+
+返回真，如果这个widget已经捕获了鼠标。
+
+```c++
+bool HasMouseCaptureByUser(int32 UserIndex, TOptional<in32> PointerIndex = TOptional<in32>()) const;
+```
+
+---
+
+被调用当这个widget已经捕获了鼠标，但是那个捕获已经被移除了由于一些原因。
+
+```c++
+virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent);
+```
+
+---
+
+设置这个widget的开启的状态。
+
+参数，InEnabledState，一个属性包含开启的状态或者一个委托去调用，去获取开启的状态。
+
+```c++
+void SetEnabled(const TAttribute<bool>& InEnabledState)
+{
+	//TargetValue和SourceValue
+	SetAttribute(EnabledState, InEnabledState, EInvalidateWidgetReason::Paint);
+}
+```
+
+
+
+---
+
+返回是否这个widget是开启的。
+
+```c++
+FORCEINLINE bool IsEnabled() const
+{
+	return EnabledState.Get();
+}
+```
+
+---
+
+返回是否这个widget可交互的？默认为false。
+
+```c++
+virtual bool IsInteractable() const
+{
+	return false;
+}
+```
+
+---
+
+tool tip被关联到这个widget，无效的引用，如果这里没有一个
+
+```c++
+virtual TSharedPtr<IToolTip> GetToolTip();
+```
+
+---
+
+被关闭，当一个tooltip从这个widget被关闭，当关闭的时候。
+
+```c++
+virtual void OnToolTipClosing();
+```
+
+---
+
+设置是否这个widget是一个tool tip force field。那是，tool-tips应当不应该出现在这个widget所占据的区域上，
+
+并且将被排斥到外部边缘。
+
+参数 bEnableForceField，真去开启tool tip force field对于这个widget。
+
+```c++
+void EnableToolTipForceField(const bool bEnableForceField);
+```
+
+---
+
+返回真，如果一个tool tip force field是激活的，在这个widget。
+
+```c++
+bool HasToolTipForceField() const
+{
+	return bToolTiplForceFieldEnabled;
+}
+```
+
+---
+
+返回true，如果这个widget hovered。
+
+```c++
+virtual bool IsHovered() const
+{
+	return bIsHovered;
+}
+```
+
+---
+
+返回true，如果这个widget是直接地hovered。
+
+```c++
+virtual bool IsDirectlyHovered() const;
+```
+
+---
+
+返回，这个widget是否可见，隐藏或者折叠。
+
+这个widget可以是可见的，但是如果一个父亲是隐藏的或者折叠的，它将不会显示在屏幕上。
+
+```c++
+FORCEINLINE EVisibility GetVisibility() const { return Visibility.Get(); }
+```
+
+---
+
+参数InVisibility，这个widget应当是什么。
+
+```c++
+virtual void SetVisibility(TAttribute<EVisibility> InVisibility);
+```
+
+---
+
+返回widget是否可见的，并且它的父亲是否是可见的。
+
+注意，只有有效的，如果widget被获取，通过一个InvalidationRoot(代理是有效的)。
+
+```c++
+bool IsFastPathVisible() const { return !bInvisibleDueToParentOrSelfVisibility; }
+```
+
+---
+
+accessibility n.可访问性
+
+获取文本，应当被报告给用户的，当企图去访问这个widget。
+
+参数，AccessibleType，是否widget被直接地访问，或者通过一个总结访问。
+
+返回，文本应当被传递给用户描述这个widget。
+
+```c++
+FText GetAccessibleText(EAccessibleType AccessibleType = EAccessibleType::Main);
+```
+
+---
+
+遍历所有的儿子widgets还有链接它们的GetAccessibleText(Sumary)的结果。
+
+返回所有儿子widegt的summary text的合并的文本。
+
+```c++
+FText GetAccessibleSummary() const;
+```
+
+
+
+
+
 
 
 
