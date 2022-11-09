@@ -677,6 +677,126 @@ virtual TSharedRef<class FSlateAccessibleWidget> CreateAccessibleWidget();
 
 
 
+## LAYOUT
+
+布局
+
+
+
+```c++
+bool NeedsPrepass() const { return bNeedsPrepass; }
+```
+
+
+
+---
+
+SlatePrepass的遗留版本，假设没有缩放超过AppScale。
+
+```c++
+void SlatePrepass();
+```
+
+---
+
+下降到层次结构中的叶子最多(leaf-most)的widget，并且在向上的过程中收集所需要的大小。
+
+例如，递归地cache所有widget的儿子所需要的大小，然后cache所需要的大小对于它自己。
+
+```c++
+void SlatePrepass(float InLayoutScaleMultipler);
+```
+
+参数，在布局缩放乘积？
+
+---
+
+```c++
+void SetCanTick(bool bInCanTick){ bInCanTick ? AddUpdateFlags(EWidgetUpdateFlags::NeedsTick) : RemoveUpdateFlags(EWidgetUpdateFlags::NeedsTick);};//根据参数设置是否移除可以更新的枚举变量
+```
+
+---
+
+```c++
+bool GetCanTick() const { return HasAnyUpdateFlags(EWidgetUpdateFlags::NeedsTick); }//是否可以Tick
+```
+
+---
+
+返回真，如果widgets有任何bound slate属性。
+
+```c++
+bool HasRegisteredSlateAttribute() const { return bHasRegisteredSlateAttribute; }//有注册的Slate属性
+```
+
+---
+
+返回真，如果widgets将更新它注册的slate属性自动地，或者它们需要去被自动地更新。
+
+```c++
+bool IsAttributesUpdatesEnabled() const { return bEnabledAttributesUpdate; }
+```
+
+---
+
+Persistent，持久的
+
+获取持久的状态？
+
+```c++
+const FSlateWidgetPersistentState& GetPersistentState() const { return PersistentState; }
+```
+
+---
+
+FWidgetProxyHandle，快速路径代理句柄？
+
+```c++
+const FWidgetProxyHandle GetProxyHandle() const { return FastPathProxyHandle; };//快速路径代理句柄
+```
+
+---
+
+返回DersiredSize，它被计算自从上一次CacheDesiredSize()被调用后。
+
+```c++
+FVector2D GetDesiredSize() const;
+```
+
+这个函数比较重要？
+
+---
+
+```c++
+void AssignParentWidget(TSharedPtr<SWidget> InParent);
+```
+
+赋值父亲Widget，这里是个共享指针，生命周期不知道是谁的。
+
+---
+
+```c++
+bool ConditionallyDetachParentWidget(SWidget* InExpectedParent);
+```
+
+有条件地分离父Widget，参数是渴望的Parent？
+
+---
+
+无效化到Child的路径？
+
+```c++
+virtual bool ValidatePathToChild(SWidget* InChild) { return true; }
+```
+
+
+
+
+
+
+
+
+
 
 
 
