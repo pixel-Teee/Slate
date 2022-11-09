@@ -789,6 +789,158 @@ bool ConditionallyDetachParentWidget(SWidget* InExpectedParent);
 virtual bool ValidatePathToChild(SWidget* InChild) { return true; }
 ```
 
+---
+
+```c++
+FORCEINLINE bool IsParentValid() const { return ParentWidgetPtr.IsValid(); }//parent widget是否有效
+```
+
+---
+
+```c++
+FORCEINLINE TSharedPtr<SWidget> GetParentWidget() const { return ParentWidgetPtr.Pin(); }
+```
+
+---
+
+```c++
+FORCEINLINE TSharedPtr<SWidget> Advanced_GetPaintParentWidget() const { return PersistentState.PaintParent.Pin(); }
+```
+
+这个函数不明，返回持久数据的PaintParent?
+
+---
+
+计算绘制这个小widget的时候，如果需要进行任何剪切状态的改变，会发生什么情况？
+
+返回应该继续使用的裁剪矩形。
+
+```c++
+FSlateRect CalculateCullingAndClippingRules(const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, bool& bClipToBounds, bool& bAlwaysClip, bool& bIntersectClipBounds) const;//计算剔除(Culling)和裁剪(Clipping)规则
+```
+
+---
+
+```c++
+bool HasAnyUpdateFlags(EWidgetUpdateFlags FlagsToCheck) const
+{
+	//有任何更新标识符
+    //UpdateFlags是成员变量
+	return EnumHasAnyFlags(UpdateFlags, FlagsToCheck);
+}
+```
+
+---
+
+```c++
+void SetVolatilePrepass(bool bVolatile)//设置volatile prepass
+{
+	bVolatile ? AddUpdateFlags(EWidgetUpdateFlags::NeedsVolatilePrepass) : RemoveUpdateFlags(EWidgetUpdateFlags::NeedsVolatilePrepass);//这里移除了volatile prepass
+}
+```
+
+---
+
+系统调用这个方法，它执行了一个**宽度优先(breadth-first)的遍历**，对于每个可见的widget，并且要求每个widget去cache它所需要多大去表现所有它的内容。
+
+这个方法比较重要。
+
+```c++
+virtual void CacheDesiredSize(float InLayoutScaleMultipiler);
+```
+
+---
+
+计算理想的需要的大小去显示这个widget。对于聚合(aggregate) widgets(例如，panels)，这个大小应当包含需要的大小去显示所有它的儿子。
+
+CacheDesiredSize()保证子级的大小被计算和cached在父亲的大小之前，**那么它是安全的去调用GetDesiredSze()对于任何儿子，当实现这个方法。**
+
+注意ComputeDesiredSize()意味着一个助手对于开发者。它不是意味着robust在多数情况。如果你的widget是模拟一个弹跳球(bouncing ball)，
+
+你应当只是返回一个合理的尺寸，例如，160 * 160，让程序员设置一个合理的规则去计算bouncy ball模拟。
+
+LayoutScaleMultipiler，这个参数是安全的去忽略对于大多数widget，只影响文本的mesauring。
+
+返回需要的大小。
+
+```c++
+virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const = 0;
+```
+
+---
+
+```c++
+void SetFastPathProxyHandle(const FWidgetProxyHandle& Handle) { FastPathProxyHandle = Handle; }//设置快速路径代理Handle
+```
+
+```c++
+void SetFastPathProxyHandle(const FWidgetProxyHandle& Handle, FSlateInvalidationWidgetVisibility Visibility, bool bParentVolatile);
+```
+
+```c++
+void SetFastPathSortOrder(const FSlateInvalidationWidgetSortOrder SortOrder);//设置快速路径排序？
+```
+
+---
+
+```c++
+void UpdateFastPathVisibility(FSlateInvalidateWidgetVisibility ParentVisibility, FHittestGrid* ParentHittestGrid);//更新快速路径可见性？
+```
+
+```c++
+void UpdateFastPathWidgetRemoved(FHittestGrid* ParentHittestGrid);//更新快速路径widget移除的？
+```
+
+```c++
+void UpdateFastPathVolatility(bool bParentVolatile);//更新快速路径波动(Volatility)
+```
+
+这三个函数不大明确。
+
+---
+
+```c++
+//显式地设置需要的大小。这是一个高度高级的功能，意味着与CacheDesiredSize综合使用。请使用ComputeDesiredSize()代替。
+void SetDesiredSize(const FVector2D& InDesiredSize)
+{
+	DesiredSize = FVector2f(InDesiredSize);
+}
+```
+
+---
+
+```c++
+void AddUpdateFlags(EWidgetUpdateFlags FlagsToAdd)//添加更新标识符
+{
+	EWidgetUpdateFlags Previous = UpdateFlags;//之前的更新标识符
+	UpdateFlags |= FlagsToAdd;
+	FastPathProxyHandle.UpdateWidgetFlags(this, Previous, UpdateFlags);//更新widget flags
+}
+```
+
+快速路径代理不知道干吗的，暂时放置。
+
+---
+
+```c++
+void RemoveUpdateFlags(EWidgetUpdateFlags FlagsToRemove)
+{
+	EWidgetUpdateFlags Previous = UpdateFlags;
+	UpdateFlags &= (~FlagsToRemove);//移除
+	FastPathProxyHandle.UpdateWidgetFlags(this, Previous, UpdateFlags);
+}
+```
+
+---
+
+```c++
+void UpdateWidgetProxy(int32 NewLayerId, FSlateCachedElementsHandle& CacheHandle);
+```
+
+更新widget代理，参数新的LayerId，第二个参数是FSlateCachedElementsHandle。
+
+---
+
 
 
 
