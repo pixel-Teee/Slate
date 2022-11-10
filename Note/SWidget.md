@@ -1207,6 +1207,249 @@ FText GetAccessibleText(EAccessibleType AccessibleType = EAccessibleType::Main);
 FText GetAccessibleSummary() const;
 ```
 
+---
+
+是否这个widget被考虑为可访问或者不可以访问的。一个widget是可访问的，如果它的行为被设置为一些事物，而不是NotAccessible，
+
+并且所有它的parent widgets支持可访问的儿子。
+
+```c++
+bool IsAccessible() const;
+```
+
+---
+
+获取描述的行为，这个widget的可访问的widget应当如何被获取。
+
+参数，AccessibleType，是否这个widget被直接地访问或者通过一个summary询问。
+
+返回widget的可访问的行为。
+
+```c++
+EAccessibleBehavior GetAccessibleBehavior(EAccessibleType AccessibleType = EAccessibleType::Main) const;
+```
+
+---
+
+设置一个新的可访问的行为，并且如果行为是自定义的，新的可访问的文本会去伴随着它。
+
+参数InBehavior，widget的新的行为，如果新的行为是自定义的，InText应当也被设置。
+
+参数InText，如果新的行为是自定义的，这个将是自定义的文本被赋予给widget。
+
+AccessibleType，是否widget被直接地访问，或者通过一个summary query。
+
+```c++
+void SetAccessibleBehavior(EAccessibleBehavior InBehaviour, const TAttribute<FText>& InText = TAttribute<FText>(), EAccessibleType AccessibleType = EAccessibleType::Main)
+```
+
+---
+
+设置是否儿子是否被允许可以访问。
+
+警告：调用这个函数在可访问性之后被开启的，将造成可访问性树变得不同步。
+
+参数InCanChildrenBeAccessible，是否儿子应当是可以访问的或者不行。
+
+```c++
+void SetCanChildrenBeAccessible(bool InCanChildrenBeAccessible);
+```
+
+---
+
+赋值AccessibleText，使用一个默认值，可以被使用，当AccessibleBehaviour被设置为Auto或者Custom。
+
+参数，AccessibleType，是否widget被直接地访问或者通过一个summary query。
+
+```c++
+virtual TOptional<FText> GetDefaultAccessibleText(EAccessibleType AccessibleType = EAccessibleType::Main) const;
+```
+
+---
+
+是否一个widget是volatile并且每一帧更新，没有被无效化。
+
+```c++
+FORCEINLINE bool IsVolatile() const { return bCachedVolatile; }
+```
+
+---
+
+这个widget是volatile，因为它的父亲或者一些祖先是volatile的，
+
+注意，只有有效的，如果widget被获取通过一个InvalidationRoot(代理是有效的)。
+
+```c++
+FORCEINLINE bool IsVolatileIndirectly() const { return bInheritedVolatility; }
+```
+
+---
+
+这个widget是否应当总是出现为volatile对于任何布局，caching host widget？
+
+一个volatile的widget的几何还有layout data将永远不会被cached，并且孩子们也不会。
+
+参数bForce，是否我们强制widget去变得volatile？
+
+```c++
+FORCEINLINE void ForceVolatile(bool bForce)
+{
+	if(bForceVolatile != bForce)
+	{
+		bForceVolatile = bForce;
+		Invalidate(EInvalidateWidgetReason::PaintAndVolatility);
+	}
+}
+```
+
+---
+
+```c++
+FORCEINLINE bool ShouldInvalidatePrepassDueToVolatility() { bVolatilityAlwaysInvalidatesPrepass; }
+```
+
+---
+
+无效化widget，从一个layout caching widget的视角看去，它持有这个widget。
+
+将强迫持有的widget去重新绘制并且cache儿子在下一次绘制pass。
+
+```c++
+void Invalidate(EInvalidateWidgetReason InvalidateReason);
+```
+
+---
+
+重新计算widget的volatility，并且cache结果。应当被调用，**在你的ComputeVolatility的实现被改变的时候进行检查。**
+
+```c++
+FORCEINLINE void CachedVolatility()
+{
+	bCachedVolatile = bForceVolatile || ComputeVolatility();
+}
+```
+
+---
+
+```c++
+UE_DEPRECATED(5.0, "InvalidatePrepass is deprecated. Use the Invalidate(EInvalidateWidgetReason::Prepass) or use MarkPrepassAsDirty()")
+void InvalidatePrepass();//这个函数被遗弃了
+```
+
+---
+
+快速路径，如果widget被标记，做一次完整的prepass在它的下一次更新，去计算它的渴望的大小。
+
+这个不会无效化widget。
+
+```c++
+void MarkPrepassAsDirty() { bNeesPrepass = true; }
+```
+
+---
+
+测试是否一个arranged widget(排列的widget)应当被剔除
+参数MyCullingRect，widget的裁剪矩形现在做culling
+参数ArrangedChild，在widget上的arranged widget现在企图去剔除儿子
+
+```c++
+bool IsChildWidgetCulled(const FSlateRect& MyCullingRect, const FArrangedWidget& ArrangedChild) const;
+```
+
+---
+
+被调用，当一个child被从树父亲的控件树中移除，方法是从插槽中删除它。这个可以被手动地调用，如果你已经获取了一些基于非slot的，不再报告给儿子的。一个手动调用的widget的例子是SWidgetSwitcher，它持有所有它的儿子，但是只安排和绘制一个单一的active一个。一旦一个儿子变得inactive，它的cached data应当被移除。
+
+```c++
+void InvalidateChildRemovedFromTree(SWidget& Child);
+```
+
+---
+
+计算和cache volatility，并且返回真，如果volatility改变了。
+
+```c++
+FORCEINLINE bool Advanced_InvalidateVolatility()
+{
+	const bool bWasDirectlyVolatile = IsVolatile();
+	CacheVolatility();
+	return bWasDirectlyVolatile |= IsVolatile();
+}
+```
+
+---
+
+返回widget的渲染透明度
+
+```c++
+FORCELINE float GetRenderOpacity() const
+{
+	return RenderOpacity();
+}
+```
+
+---
+
+参数，InOpacity，widget的透明度，在渲染的时候。
+
+```c++
+FORCEINLINE void SetRenderOpacity(float InRenderOpacity)
+{
+	if(RenderOpacity != InRenderOpacity)
+	{
+		RenderOpacity = InRenderOpacity;
+		Invalidate(EInvalidateWidgetReason::Paint);//这里无效化了一下
+	}
+}
+```
+
+---
+
+```c++
+FORCELINE void SetTag(FName InTag)
+{
+	Tag = InTag;
+}
+```
+
+---
+
+返回widget的render transform
+
+```c++
+FORCEINLINE const TOptional<FSlateRenderTransform>& GetRenderTransform() const
+{
+	return RenderTransformAttribute.Get();//返回RenderTransformAttribute
+}
+```
+
+---
+
+返回RenderTransform，依据流的方向。
+
+```c++
+FORCEINLINE TOptional<FSlateRenderTransform> GetRenderTransformWithRespectToFlowDirection() const
+{
+	if(LIKELY(GSlateFlowDirection == EFlowDirection::LeftToRight))//判断方向
+	{
+		return RenderTransformAttribute.Get();
+	}
+	else
+	{
+		//如果我们从右往左，翻转x位移在render transforms
+		TOptional<FSlateRenderTransform> Transform = RenderTransformAttribute.Get();
+		if(Transform.IsSet())
+		{
+			FVector2D Translation = Transform.GetValue().GetTranslation();
+			Transform.GetValue().SetTranslation(FVector2D(-Translation.X, Translation.Y));
+		}
+		return Transform;
+	}
+}
+```
+
+//1227
+
 
 
 
