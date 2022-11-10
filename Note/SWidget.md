@@ -1614,6 +1614,621 @@ void SetToolTip(const TAttribute<TSharedPtr<IToolTip>>& InToolTip);
 void SetCursor( const TAttribute< TOptional<EMouseCursor::Type> >& InCursor );
 ```
 
+---
+
+被Slate使用，去设置这个widget的运行时debug信息。
+
+```c++
+void SetDebugInfo(const ANSICHAR* InType, const ANSICHAR* InFile, in32 OnLine, size_t InAllocSize);
+```
+
+---
+
+去展示的cursor，当鼠标悬浮在这个widget的时候。
+
+```c++
+TOptional<EMouseCursor::Type> GetCursor() const;
+```
+
+---
+
+根据提供的类型获取metadata。
+
+返回我们遇到的提供类型的第一个元数据。
+
+```c++
+template<typename MetaDataType>
+TSharedPtr<MetaDataType> GetMetaData() const
+{
+	for(const auto& MetaDataEntry : MetaData)
+	{
+		if(MetaDataEntry->IsOfType<MetaDataType>())
+		{
+			return StaticCastSharedRef<MetaDataType>(MetaDataEntry);
+		}
+	}
+	return TSharedPtr<MetaDataType>();
+}
+```
+
+---
+
+根据提供的类型获取所有的metadata。
+
+返回所有找到的metadata，根据确定的类型。
+
+```c++
+template<typename MetaDataType>
+TArray<TSharef<MetaDataType>> GetAllMetaData() const
+{
+	TArray<TSharedRef<MetaDataType>> FoundMetaData;
+	for(const auto& MetaDataEntry : MetaData)
+	{
+		if(MetaDataEntry->IsOfType<MetaDataType>())
+		{
+			FoundMetaData.Add(StaticCastSharedRef<MetaDataType>(MetaDataEntry));
+		}
+	}
+	return FoundMetaData;
+}
+```
+
+---
+
+添加metadata到这个widget
+
+参数AddMe，添加到widget的metadata。
+
+```c++
+template<typename MetaDataType>
+void AddMetadata(const TSharedRef<MetaDataType>& AddMe)
+{
+	AddMetadataInternal(AddMe);
+}
+```
+
+---
+
+从这个widget移除metadata。
+
+```c++
+template<typename MetaDataType>
+in32 RemoveMetaData(const TSharedRef<MetaDataType>& RemoveMe)
+{
+	return MetaData.RemoveSingleSwap(RemoveMe);
+}
+```
+
+---
+
+```c++
+void AddMetadataInternal(const TSharedRef<ISlateMetaData>& AddMe);
+```
+
+---
+
+```c++
+template<typename MetaDataType>
+in32 RemoveAllMetaData()
+{
+	int32 NumBefore = MetaData.Num();
+	for(int32 Index = NumBefore - 1; Index >= 0; --Index)
+	{
+		const auto& MetaDataEntry = MetaData[Index];
+		if(MetaDataEntry->IsOfType<MetaDataType>())
+		{
+			MetaData.RemoveAtSwap(Index);
+		}
+	}
+	return NumBefore - MetaData.Num();
+}
+```
+
+---
+
+```c++
+template<typename MetaDataType>
+bool RemoveMetaData()
+{
+	for(int32 Index = MetaData.Num() - 1; Index >= 0; --Index)
+	{
+		const auto& MetaDataEntry = MetaData[Index];
+		if(MetaDataEntry->IsOfType<MetaDataType>())
+		{
+			MetaData.RemoveAtSwap(Index);
+			return true;
+		}
+	}
+	return false;
+}
+```
+
+---
+
+设置OnMouseButtonDown事件。
+
+```c++
+void SetOnMouseButtonDown(FPointerEventHandler EventHandler);
+```
+
+---
+
+设置OnMouseButtonUp事件。
+
+```c++
+void SetOnMouseButtonUp(FPointerEventHandler EventHandler);
+```
+
+---
+
+设置OnMouseDoubleClick事件。
+
+```c++
+void SetOnMouseDoubleClick(FPointerEventHandler EventHandler);
+```
+
+---
+
+设置OnMouseEnter事件。
+
+```c++
+void SetOnMouseEnter(FNoReplyPointerEventHandler EventHandler);
+```
+
+---
+
+设置OnMouseLeave事件。
+
+```c++
+void SetOnMouseLeave(FSimpleNoReplyPointerEventHandler EventHandler);
+```
+
+---
+
+Widget Inspector还有debugging方法
+
+返回一个字符串表示widget
+
+```c++
+virtual FString ToString() const;
+```
+
+---
+
+widget类型的字符串。
+
+```c++
+FString GetTypeAsString() const;
+```
+
+---
+
+返回widget的类型作为一个FName ID
+
+```c++
+FName GetType() const;
+```
+
+---
+
+一个widget代码的字符串在可读的形式"BaseFileName(LineNumber)"
+
+```c++
+virtual FString GetReadbleLocation() const;
+```
+
+---
+
+返回一个widget代码位置的FName(完整的路径还有数字==文件的行数)
+
+```c++
+FName GetCreatedInLocation();
+```
+
+---
+
+返回被标记的widget的名字
+
+```c++
+virtual FName GetTag() const;
+```
+
+---
+
+返回这个widget设置的前景色，重置选项，如果widget没有设置一个前景色
+
+```c++
+virtual FSlateColor GetForegroundColor() const;
+```
+
+---
+
+GetCachedGeometry已经被遗弃了，使用GetTickSpaceGeometry代替。
+
+```c++
+const FGeometry& GetCachedGeometry() const;
+```
+
+---
+
+获取上一个使用的geometry去tick widget。这个数据可能不存在，如果这个调用发生于widget，已经被ticked/painted，或者它可能过时，或者一帧之后。
+
+
+
+我们推荐不使用这个数据，除非这里没有方式去解决你的问题。普通地在Slate，我们尝试并且处理这些问题，
+
+通过制作一个层次的部分依赖的widget，关于避免之后的frame或者什么是滞后问题，两个被造成，依赖于从上一帧的几何，被用于去建议如何去布局一个依赖的对象，在现有的帧。
+
+```c++
+const FGeometry& GetTickSpaceGeometry() const;
+```
+
+---
+
+获取上一个使用的几何去Tick widget。这个数据可能不存在，如果这个调用发生于widget已经被tick/paint，或者它可能过时，或者一帧之后。
+
+```c++
+const FGeometry& GetPaintSpaceGeometry() const;
+```
+
+---
+
+返回clipping state去裁剪这个widget相对于它的父亲。
+
+```c++
+const TOptional<FSlateClippingState>& GetCurrentClippingState() const { return PersistentState.InitialClipState; }
+```
+
+---
+
+是否这个widget从SWindow派生。
+
+```c++
+virtual bool Advanced_IsWindow() const { return false; }
+virtual bool Advanced_IsInvalidationRoot() const { return false; }
+virtual const FSlateInvalidationRoot* Advanced_AsInvalidationRoot() const { return nullptr; }
+```
+
+---
+
+隐藏的默认的构造函数。
+
+使用SNew(WidgetClassName)去实例化新的widgets。
+
+SNew
+
+```c++
+SWidget();
+```
+
+---
+
+构造一个SWidget，依据初始的参数。
+
+```c++
+void SWidgetConstruct(const FSlateBaseNamedArgs& Args);//这个参数比较重要
+```
+
+---
+
+找到后代widget的几何。这个方法加速了WidgetsToFind是这个widget的一个后代。
+
+注意，不是所有的widgets被保证去被发现。OutResult将包含空的入口对于丢失的widgets。
+
+参数MyGeometry，这个widget的几何。
+
+参数WidgetsToFind，希望去发现的widgets的几何。
+
+参数OutResult，一个widget的map引用了它们的相对的几何。
+
+返回true，如果所有的WidgetGeometries被发现，否则为false。
+
+```c++
+bool FindChildGeometries( const FGeometry& MyGeometry, const TSet< TSharedRef<SWidget> >& WidgetsToFind, TMap<TSharedRef<SWidget>, FArrangedWidget>& OutResult ) const;
+```
+
+---
+
+FindChildGeometries的实际实现。
+
+参数MyGeometry，这个widget的几何。
+
+参数WidgetsToFind，我们希望去发现的widgets的几何。
+
+参数OutResult，一个widget的map，引用了它们相对的几何。
+
+```c++
+void FindChildGeometries_Helper( const FGeometry& MyGeometry, const TSet< TSharedRef<SWidget> >& WidgetsToFind, TMap<TSharedRef<SWidget>, FArrangedWidget>& OutResult ) const;
+```
+
+---
+
+找到子代widget的几何，这个方法假设了WidgetToFind是一个这个widget的后代。
+
+参数MyGeometry，这个widget的几何。
+
+WidgetToFind，我们希望去发现的widget的几何。
+
+返回WidgetToFind的几何。
+
+```c++
+FGeometry FindChildGeometry( const FGeometry& MyGeometry, TSharedRef<SWidget> WidgetToFind ) const;
+```
+
+---
+
+返回当前悬浮的鼠标的儿子的索引。
+
+```c++
+static int32 FindChildUnderMouse( const FArrangedChildren& Children, const FPointerEvent& MouseEvent );
+```
+
+---
+
+在确切的位置下的儿子的索引。
+
+```c++
+static int32 FindChildUnderPosition(const FArrangedChildren& Children, const FVector2D& ArrangedSpacePosition);
+```
+
+---
+
+决定是否这个widget应当被开启。
+
+参数InParentEnabled，如果这个widget的父亲被开启。
+
+返回true，如果这个widget是开启的。
+
+```c++
+bool ShouldBeEnabled(bool InParentEnabled) const
+{
+    //这个widget应当被开启，如果它的父亲被开启，并且它也被开启了
+    return InParentEnabled && IsEnabled();
+}
+```
+
+---
+
+返回一个画刷去绘制焦点，nullptr，如果没有焦点绘制被要求。
+
+```c++
+virtual const FSlateBrush* GetFocusBrush() const;
+```
+
+---
+
+重新计算widget的不稳定性。如果你有额外的状态，你自动地想去使得widget不稳定，你应当采样那个信息这里。
+
+```c++
+virtual bool ComputeVolatility() const
+{
+	return Visibility.IsBound() || EnabledState.IsBound() || RenderTransform.IsBound();
+}
+```
+
+---
+
+受保护的静态帮助器，去允许widgets去直接地访问其它widgets的属性可见性
+
+参数，Widget，widget，去获取可见性属性。
+
+```c++
+static const TAttribute<EVisibility>& AccessWidgetVisibilityAttribute(const TSharedRef<SWidget>& Widget)
+{
+	return Widget->Visibility;
+}
+```
+
+---
+
+被调用，当裁剪被改变的时候。应当被用于去转发裁剪状态到潜在的隐藏的儿子，实际地负责裁剪内容。
+
+```c++
+virtual void OnClippingChanged();
+```
+
+---
+
+widget应当通过用FDrawElements填充OutDrawElements数组来响应
+
+表示它还有任何它的儿子。被调用，通过非虚函数OnPaint去强迫一个pre/post条件，在OnPaint的时候。
+
+参数Args，所有需要的参数去绘制这个widget(todo umg：移动所有的参数到这个widget)
+
+参数AllottedGeometry，FGeometry描述一个区域widget应当出现的。
+
+参数MyCullingRect，rectangle，表示现在被用于去完全地剔除widgets的边界。
+
+参数OutDrawElements，一个FDrawElements的列表去填充output。
+
+参数LayerId，widget应当被渲染的layer。
+
+参数InColorAndOpacity，被应用到widget当前绘制的所有的子代的颜色和透明度。
+
+参数bParentEnabled，true，如果这个widget的父亲被开启的话。
+
+返回最大的layerId，可以得到，通过这个widget或者任何它的儿子。
+
+```c++
+virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const = 0;
+```
+
+---
+
+计算所有儿子的几何，还有填充ArrangedChildren的列表，通过它们的值。
+
+每个layout panel的类型安排儿子，依据于渴望的行为。
+
+参数AllottedGeometry，分配的geometry，对于这个widget，通过它的父亲。
+
+参数ArrangedChildren，数组去添加WidgetGeometries，表示arranged children。
+
+```c++
+virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const = 0;
+```
+
+---
+
+```c++
+void Prepass_Internal(float LayoutScaleMultiplier);
+```
+
+---
+
+```c++
+float GetPrepassLayoutScaleMultiplier() const { return PrepassLayoutScaleMultiplier.Get(1.0f);}
+
+void Prepass_ChildLoop(float InLayoutScaleMultiplier, FChildren* MyChildren);
+```
+
+---
+
+注册一个活跃的timer委托，它将执行在一些常规的间隔。TickFunction将不会被调用，直到确切的间隔已经流逝了一次。
+
+一个widget可以注册它所需要的delegates的数量。小心，当注册，去避免重复的活跃的timers。
+
+
+
+一个活跃的timer可以被UnRegistered在三个方式中的一个：
+
+1.调用UnRegisterActiveTimer，使用活跃的timer句柄，被返回在这里。
+
+2.让你delegate，返回ActiveTimerRetureType::Stop
+
+3.销毁widget
+
+
+
+Active Timers
+
+Slate可能去sleep，当这里没有用户交互对于一些时间，去节省电量。
+
+然而，一些UI元素可能需要去驱动UI，甚至当用户不能提供任何输入(例如，动画，视口渲染，异步轮询，等等)。
+
+一个widget通知Slate这个，通过注册一个Active Timer，被执行在一个确切的频率去驱动UI。
+
+在这个方式，slate可以去sleep，当这里没有输入，并且没有激活的timer需要去激发。
+
+当任何active timer去激发，所有的slate将做一个Tick还有Paint pass。
+
+
+
+参数Period，time period去等待，在每个timer的执行之间，传递0去激发timer每一帧，如果一个间隔是missed，委托将不会被调用超过一次。
+
+参数TimerFunction，active timer委托，去调用每个Periond秒。
+
+返回一个active timer句柄，可以被用于去UnRegister之后。
+
+```c++
+TSharedRef<FActiveTimerHandle> RegisterActiveTimer(float TickPeriod, FWidgetActiveTimerDelegate TickFunction);
+```
+
+---
+
+Unregisters一个active timer handle。这是一个可选的，因为delegate可以UnRegister它自己，通过返回一个EActiveTimerReturnType::Stop。
+
+```c++
+void UnRegisterActiveTimer(const TSharedRef<FActiveTimerHandle>& ActiveTimerHandle);
+```
+
+---
+
+这个widget有任何active timers。
+
+```c++
+bool HasActiveTimers() const { return AciverTimers.Num() > 0; }
+```
+
+---
+
+迭代active timer句柄在widget上，并且执行它们，如果它们的间隔已经流逝了。
+
+```c++
+void ExecuteActiveTimers(double CurrentTime, float DeltaTime);
+```
+
+---
+
+执行属性赋值，并且无效化widget最小地，基于实际改变的，那么如果属性的边界不会改变稳定性，将不需要去被计算。返回true，如果值已经被改变了。
+
+```c++
+template<typename TagretValueType, typename SourceValueType>
+bool SetAttribute(TAttribute<TargetValueType>& TargetValue, const TAttribute<SourceValueType>& SourceValue, EInvalidateWidgetReason BaseInvalidationReason)
+{
+	return SetWidgetAttribute(*this, TargetValue, SourceValue, BaseInvalidationReason);
+}
+```
+
+---
+
+Dtor保证active timer句柄，被UnRegistered，对于SlateApplication
+
+```c++
+virtual ~SWidget();
+```
+
+---
+
+句柄去代理，当在快速路径的时候。
+
+```c++
+mutable FWidgetProxyHandle FastPathProxyHandle;
+```
+
+---
+
+```c++
+//是否widget悬浮的？
+uint8 bIsHovered : 1;
+
+//widget是否支持键盘焦点？
+uint8 bCanSupportFocus : 1;
+
+//是否widget支持儿子？这个将是false在SLeafWidgets
+//而不是直接地设置这个。你应当从SLeafWidget继承它
+uint8 bCanHaveChildren : 1;
+
+//一些widgets可能是一个儿子widgets的复杂层次你之前没看见的。一些这些widgets
+//将暴露它们的裁剪选项，但是可能不是个人地，对于负责裁剪，那么设置它可能被设置为clip
+//这个flag被用于去通知绘制，这个widget不会真正去被裁剪
+uint8 bClippingProxy : 1;
+
+//是否这个widget是一个tool tip force field，那个是，tool-tips应当不会生成区域被这个widget占据
+//并且将被排斥在边缘
+uint8 bToolTipForceFieldEnabeld : 1;
+
+
+//是否我们应当强迫这个widget去变得不稳定，在所有的时刻，并且重新绘制每一帧？
+uint8 bForceVolatile : 1;
+
+//这个widget的上一个cached volatility，被cache，那么我们不需要去计算不稳定性，每一帧
+uint8 bCachedVolatile : 1;
+
+//如果我们被持有，通过一个volatile widget，我们从那个不稳定性继承，并且使用作为我么不稳定性的一部分，
+//但是我们不需要cache它
+uint8 bInheritedVolatility : 1;
+
+//如果widget被隐藏或者折叠到一个祖先的可见性
+uint8 bInvisibleDueToParentOrSelfVisibility : 1;
+
+//是否我们现在更新渴望的大小？
+uint8 bNeedsPrepass : 1;
+
+//是否我们现在更新渴望的大小？
+uint8 bNeedsPrepass : 1;
+
+//是否我们现在更新渴望的大小？
+mutable uint8 bUpdatingDesiredSize : 1;
+
+uint8 bHasCustomPrepass : 1;
+
+//有相对布局缩放？
+uint8 bHasRelativeLayoutScale : 1;
+
+//是否这个widget应当总是无效prepass步骤，当volatile
+uint8 bVolatilityAlwaysInvalidatesPrepass : 1;
+```
+
 
 
 
