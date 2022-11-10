@@ -1448,7 +1448,175 @@ FORCEINLINE TOptional<FSlateRenderTransform> GetRenderTransformWithRespectToFlow
 }
 ```
 
-//1227
+---
+
+```c++
+FORCEINLINE FVector2D GetRenderTransformPivotWithRespectToFlowDirection() const//这个函数和上面那个对比，这个有镜像
+{
+	if(LIKELY(GSlateFlowDirection == EFlowDirection::LeftToRight))
+	{
+		return RenderTransformPivotAttribute.Get();
+	}
+	else
+	{
+		//如果从右到左，翻转x的pivot以0.5为镜像
+		FVector2D TransformPivout = RenderTransformPivotAttribute.Get();
+		TransformPivot.X = 0.5f + (0.5f - TransformPivot.X);
+		return TransformPivot;
+	}
+}
+```
+
+---
+
+参数InTransform，render transform去设置对于widget(从widget的局部空间变换)，TOptional<>允许代码去忽略昂贵的开销，如果这里没有render transform应用。
+
+```c++
+FORCEINLINE void SetRenderTransoform(TAttribute<TOptional<FSlateRenderTransform> InTransform)
+{
+	RenderTransformAttribute.Assign(*this, MoveTemp(InTransform));
+}
+```
+
+---
+
+返回render transform的pivot点
+
+```c++
+FORCEINLINE FVector2D GetRenderTransformPivot() const
+{
+	return RenderTransformPivotAttribute.Get();
+}
+```
+
+---
+
+参数InTransformPivot，设置widget的render transform的pivot点(在归一化的局部空间)
+
+```c++
+FORCEINLINE void SetRenderTransformPivot(TAttribute<FVector2D> InTransformPivot)
+{
+	RenderTransformPivotAttribute.Assign(*this, MoveTemp(InTransformPivot));
+}
+```
+
+---
+
+设置对于这个widget的裁剪到边界
+
+```c++
+FORCEINLINE void SetClipping(EWidgetClipping InClipping)
+{
+	if(Clipping != InClipping)
+	{
+		Clipping = InClipping;
+		OnClippingChanged();
+		//todo fast path should this be paint?
+		Invalidate(EInvalidateWidgetReason::Layout)
+	}
+}
+```
+
+---
+
+返回现在的clipping规则，对于这个widget。
+
+```c++
+FORCEINLINE EWidgetClipping GetClipping() const
+{
+	return Clipping;
+}
+```
+
+---
+
+设置一个额外的剔除padding，被添加到一个widget，去给定更多的余地(leeway)，当剔除widgets的时候。
+
+有用的，如果一些子widgets有渲染，超出它们的边界的时候。
+
+```c++
+FORCEINLINE void SetCullingBoundsExtension(const FMargin& InCullingBoundsExtension)
+{
+	if (CullingBoundsExtension != InCullingBoundsExtension)
+	{
+		CullingBoundsExtension = InCullingBoundsExtension;
+		// @todo - Fast path should this be Paint?
+		Invalidate(EInvalidateWidgetReason::Layout);
+	}
+}
+```
+
+---
+
+返回CullingBoundsExtension
+
+```c++
+FORCEINLINE FMargin GetCullingBoundsExtension() const
+{
+	return CullingBoundsExtension;
+}
+```
+
+---
+
+设置内容如何flow在这个panel，基于现在的培养物(culture)。默认，所有的panels从以上的widgets继承状态。如果它们设置了一个新的
+
+flow方向，它将从树上继承下来。
+
+```c++
+void SetFlowDirectionPreference(EFlowDirectionPreference InFlowDirectionPreference)
+{
+	if(FlowDirectionPreference != InFlowDirectionPreference)
+	{
+		FlowDirectionPreference = InFlowDirectionPreference;
+		Invalidate(EInvalidateWidgetReason::Paint);
+	}
+}
+```
+
+---
+
+获取需要的flow方向，对于布局。
+
+```c++
+EFlowDirectionPreference GetFlowDirectionPreference() const { return FlowDirectionPreference; }
+```
+
+---
+
+设置tool tip，应当出现的，当这个widget，hovered的时候。
+
+```c++
+void SetToolTipText(const TAttribute<FText>& ToolTipText);
+```
+
+---
+
+设置应当出现的tool tip，当这个widget，hovered的时候。
+
+```c++
+void SetToolTipText( const FText& InToolTipText );
+```
+
+---
+
+设置应当出现的tool tip，当这个widget被hovered的时候。
+
+```c++
+void SetToolTip(const TAttribute<TSharedPtr<IToolTip>>& InToolTip);
+```
+
+---
+
+设置应当出现的cusor，当这个widget被hovered的时候。
+
+```c++
+void SetCursor( const TAttribute< TOptional<EMouseCursor::Type> >& InCursor );
+```
+
+
+
+
 
 
 
