@@ -2227,6 +2227,95 @@ uint8 bHasRelativeLayoutScale : 1;
 
 //是否这个widget应当总是无效prepass步骤，当volatile
 uint8 bVolatilityAlwaysInvalidatesPrepass : 1;
+
+#if WITH_ACCESSIBLITY
+	//围绕该小部件如何暴露于平台的可访问性API的所有变量
+	uint8 bCanChildrenBeAccessible : 1;
+	EAccessibleBehavior AccessibleBehavior;
+	EAccessibleBehavior AccessibleSummaryBehavior;
+#endif
+
+//设置为true，如果widget的所有内容应当裁剪到这个widget的边界
+EWidgetClipping Clipping;
+
+//潜在地建立一个新的流方向，如果这个widget对它及其子部件有特定偏好
+EFlowDirection ComputeFlowDirection() const
+{
+    switch(FlowDirectionPreference)
+    {
+    case EFlowDirectionPreference::Culture:
+		 return FLayoutLocalization::GetLocalizedLayoutDirection();
+	case EFlowDirectionPreference::LeftToRight:
+		 return EFlowDirection::LeftToRight;
+	case EFlowDirectionPreference::RightToLeft:
+		 return EFlowDirection::RightToLeft;        
+    }
+    return GSlateFlowDirection;
+}
+
+//流方向倾向
+EFlowDirectionPreference FlowDirectionPreference;
+
+//不同更新这个widget需要下一帧
+EWidgetUpdateFlags UpdateFlags;
+
+#if WITH_SLATE_DEBUGGING
+	//上一帧被绘制的widget
+	uint32 LastPaintFrame = 0;
+#endif
+mutable FSlateWidgetPersistentState PersistentState;
+
+//存储理想的大小，这个widget想要的
+TOptional<FVector2D> DesiredSize;
+
+//active handles的列表，对于这个widget
+TArray<TSharedRef<FActiveTimerHandle>> ActiveTimers;
+
+TOptional<float> PrepassLayoutScaleMultipler;
+
+/*
+可以被用来去扩大这个widget的裁剪边界(预先相交)，这个可以是有用的，如果你已经得到了儿子，你知道，
+使用rendering transforms去渲染到它们标准边界的外边。如果那个发生了，那是可能的，父亲可能被剔除，
+在子代widget是完全地离屏。对于这些情况，你应当扩展剔除区域的边界，去添加一些偷懒，剔除是如何执行到这个panel的。
+*/
+FMagrin CullingBoundsExtension;
+
+//是否这个widget被开启了
+TAttribute<bool> EnabledState;
+
+//是否这个widget可见的，隐藏或者折叠的
+TAttribute<EVisibility> Visibility;
+
+//widget的透明度，自动地被应用在渲染的时候
+float RenderOpacity;
+
+//这个widget的Render transform，TOptional<>去允许代码去忽略昂贵的开销，如果这里没有render transform应用
+TAttribute<TOptional<FSlateRenderTransform>> RenderTransform;
+
+//render transform pivot(在标准局部空间)
+TAttribute<FVector2D> RenderTransformPivot;
+
+//关联到这个widget的metadata
+TArray<TSharedRef<ISlateMetaData>> MetaData;
+
+//指向这个widgets的parent widget，如果它是null，这是一个root widget，或者它不在widget tree
+TWeakPtr<SWidget> ParentWidgetPtr;
+
+//Debugging信息，在widget的类型，我们创建为了widget reflector
+FName TypeOfWidget;
+
+#if !UE_BUILD_SHIPPING
+//完整的文件路径(还有行)这个widget被创建的地方
+FName CratedInLocation;
+#endif
+
+//这个widget的Tag
+FName Tag;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	//访问到SWidget::Cursor被遗弃，调用SetCursor/GetCursor代替
+	TAttribute<TOptional<EMouseCursor::Type>> Cursor;
+#endif
 ```
 
 
