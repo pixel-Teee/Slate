@@ -57,6 +57,10 @@ TAttribute(TSharedRef<SourceType> InUserObject, typename FGetter::template TSPMe
 
 
 
+**总结：TAttribute可以绑定委托，然后TAttribute尝试去获取值的时候，就会调用委托，进行执行。**
+
+
+
 
 
 

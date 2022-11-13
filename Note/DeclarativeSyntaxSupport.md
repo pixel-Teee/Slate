@@ -209,6 +209,14 @@ SImage的例子，可以看到，它在内部定义了一个FArguments结构体�
 
 
 
+总结：SImage等SWidget内部用宏声明了一些参数，用来创建FArguments这个类。
+
+**然后创建SImage的实例的时候，就可以使用链式编程，进行创建。**
+
+![image-20221112172010965](Image/DeclarativeSyntaxSupport/image-20221112172010965.png)
+
+因为像这种FArguments内的函数，都返回return *this，从而进行链式编程。
+
 
 
 
