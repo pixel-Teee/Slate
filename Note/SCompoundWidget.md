@@ -61,5 +61,128 @@ struct FCompoundWidgetOneChildSlot : ::TSingleWidgetChildrenWithBasicLayoutSlot<
 
 
 
+```c++
+//绘制函数
+int32 SCompoundWidget::OnPaint(const FPaintArgs& Args,
+const FGeometry& AllottedGeometry,
+const FSlateRect& MyCullingRect,
+FSlateWidowElementList& OutDrawElements,
+int32 LayerId,
+const FWidgetStyle& InWidgetStyle,
+bool bParentEnabled)
+{
+    //一个compound widget只绘制它的儿子
+    FArrangedChildren ArrangedChildren(EVisibility::Visible);
+    {
+        this->ArrangeChildren(AllottedGeometry, ArrangedChildren);
+    }
+    
+    //这里可能有零个元素在数组，如果我们的儿子折叠/隐藏了
+    if(ArrangedChildren.Num() > 0)
+    {
+        const bool bShouldBeEnabled = ShouldBeEnabled(bParentEnabled);
+        
+        check(ArrangedChildren.Num() == 1);
+        FArrangedWidget& TheChild = ArrangedChildren[0];
+        
+        FWidgetStyle CompoundedWidgetStyle = FWidgetStyle(InWidgetStyle)
+        .BlendColorAndOpacityTint(GetColorAndOpacity())
+        .SetForegroundColor(bShouldBeEnabled ? GetForegoundColor() : GetDisabledForegroundColor());
+        
+        int32 Layer = 0;
+		Layer = TheChild.Widget->Paint(Args.WithNewParent(this), TheChild.Geometry, MyCullingRect,
+                OutDrawElements, LayerId + 1, CompoundedWidgetStyle, bShouldBeEnabled);//这里LayerId + 1了
+        return Layer;
+    }
+    return LayerId;
+}
+```
+
+
+
+```c++
+FChildren* SCompoundWidget::GetChhildren()
+{
+	return &ChildSlot;
+}
+```
+
+
+
+```c++
+FVector2D SCompundWidget::ComputeDesiredSize(float) const
+{
+	EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();//获取可见性
+	if(ChildVisibility != EVisibility::Collapsed)//不是折叠，计算大小
+	{
+		return ChildSlot.GetWidget()->GetDesiredSize() + ChildSlot.GetPadding().GetDesiredSize();//加上了padding大小
+	}
+	return FVector2D::ZeroVector;
+}
+```
+
+
+
+```c++
+void SCompoundWidget::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
+{
+	ArrangedSingleChild(GSlateFlowDirection, AllottedGeometry, ArrangedChildren, ChildSlot, GetContentScale());
+}
+```
+
+
+
+```c++
+SCompoundWidget::SCompoundWidget()
+:ChildSlot(this),
+ContentScaleAttribute(*this, FVector2D(1.0f, 1.0f)),
+ColorAndOpacityAttribute(*this, FLinearColor::White),
+ForegroundColorAttribute(*this, FSlateColor::UseForeground)
+{
+
+}
+```
+
+
+
+```c++
+void SCompoundWidget::SetVisibility(TAttribute<EVisibility> InVisibility)
+{
+	SWidget::SetVisibility(MoveTemp(InVisibility));
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
