@@ -154,7 +154,15 @@ void SCompoundWidget::SetVisibility(TAttribute<EVisibility> InVisibility)
 
 
 
+![image-20221127234123404](Image\SCompoundWidget\image-20221127234123404.png)
 
+
+
+这里调用了SWidget的ArrangeChildren，**然后SWidget的ArrangeChildren调用SCompoundWidget派生的子类的OnArrangeChildren虚函数。**
+
+
+
+SCompoundWidget的ChildSlot，类型是FCompoundOneChildSlot，从**TSingleWidgetChildrenWithBasicLayoutSlot\<EInvalidateWidgetReason::None\>**继承。
 
 
 
