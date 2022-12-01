@@ -65,3 +65,80 @@ const TSharedRef<SWidget> DetachWidget();
 void Invalidate(EInvalidateWidgetReason InvalidateReason);
 ```
 
+
+
+# TSlotBase
+
+```c++
+/*一个sloat，可以被使用，通过声明式的语法*/
+template<typename SlotType>
+class TSlotBase : public FSlotBase
+    
+    
+SlotType& operator[](const TSharedRef<SWidget>& InChildWidget)
+{
+    //这里放入了一个InChildWidget
+    this->AttachWidget(InChildWidget);
+    return static_cast<SlotType&>(*this);//返回这个槽
+}
+
+SlotType& Expose(SlotType& OutVarToInt)
+{
+    OutVarToInt = static_cast<SlotType*>(this);
+    return static_cast<SlotType&>(*this);
+}
+
+void Construct(const FChildren& SlotOwner, FSlotArguments& InArgs)
+{
+    if(InArgs.GetAttachedWidget())//获取参数上拥有的widget
+    {
+        AttachWidget(InArgs.GetAttachedWidget().ToSharedRef());//设置槽的内容widget
+    }
+    SetOwner(SlotOwner);//设置拥有这个槽的FChildren
+}
+```
+
+
+
+```c++
+//TSlotBase有个FSlotArguments，结构体去构造一个slot
+struct FSlotArguments
+
+//依附slot将持有的child widget
+typename SlotType::FSlotArguments& operator[](const TSharedRef<SWidget>& InChildWidget)
+{
+    ChildWidget = InChildWidget;
+    return Me();//注意这里，这里是返回模板参数的FSlotArguments
+}
+
+//数据成员
+TUniquePtr<SlotType> Slot;//槽
+TSharedPtr<Swidget> ChildWidget;//子widget
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
