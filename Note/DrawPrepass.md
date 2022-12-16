@@ -183,7 +183,213 @@ PreUpdate、PrepassUpdate、PostUpdate，3个过程。
 
 
 
+如下是一个简略的过程：
 
+![image-20221216111021929](Image/DrawPrepass/image-20221216111021929.png)
+
+
+
+# ProcessPreUpdate
+
+FSlateInvalidationRoot，持有一个FSlateInvalidationWidgetList的独占指针，它表示所有widget的列表，被SlateInvalidationRoot所包含。
+
+```c++
+TSharedRef<SWidget> RootWidget = GetRootWidget();//这个虽然是FSlateInvalidationRoot的虚函数，但是由SWidget继承，并且返回自己本身
+
+//所有widget的列表被这个SlateInvalidationRoot所包含
+//这里首先，调用了FSlateInvalidationWidgetList的GetRoot函数，获取构建的widget列表的根，GetRoot返回的类型是弱指针，然后进行了提升，和本身进行比较，是否一致，如果不一致，就重新构建快速查找树
+if(FastWidgetPathList->GetRoot().Pin() != RootWidget)
+{
+	BuildFastPathWidgetList(RootWidget);//build fast path widget list
+    
+    //add the root to the update list(to prepass and paint it)
+    //添加根到update list(去预处理还有绘制它)
+    WidgetsNeedingPostUpdate->Reset(true);//我们可以清理post list，因为所有的widgets将会被更新
+    RootWidget->Invalidate(EInvalidateWidgetReason::Prepass);
+}
+else
+{
+    //这里定义了一个FChildOriderInvalidationCallbackImpl
+    //fast widget path list
+    //widgets needing pre update
+    //widgets needing prepass update
+    //widgets needing post update
+    FChildOriderInvalidationCallbackImpl ChildOrderInvalidationCallback{ *FastWidgetPathList, *WidgetsNeedingPreUpdate, *WidgetsNeedingPrepassUpdate, *WidgetsNeedingPostUpdate };
+    
+    //widgets needing pre update的数量大于0，并且不需要slow path
+    //如果是slow path，应该是全量更新
+    while(WidgetsNeedingPreUpdate->Num() > 0 && !bNeedsSlowPath)
+    {
+        //process child order && attribute registration invalidation
+        //处理儿子顺序，还有属性注册的无效化
+        //堆顶弹出一个
+        const FSlateInvalidationWidgetIndex WidgetIndex = WidgetsNeedingPreUpdate->HeapPop();
+        SWidget* WidgetPtr = nullptr;
+        EInvalidateWidgetReason CurrentInvalidateReason = EInvalidateWidgetReason::None;
+        {
+            //在一个ChildOrder之后，索引可能还没有改变，但是内部的数组已经增长了
+            //增长可能无效化数组的地址
+            const FSlateInvalidationWidgetList::InvalidationWidgetType& InvalidationWidget = (*FastWidgetPathList)[WidgetIndex];
+            WidgetPtr = InvalidationWidget.GetWidget();
+            CurrentInvalidateReason = InvalidationWidget.CurrentInvalidateReason;
+        }
+        
+        //它可能已经被销毁了
+        if(WidgetPtr)
+        {
+            bool bIsInvalidationWidgetValid = true;
+            //有child order无效化理由
+            if(EnumHasAnyFlags(CurrentInvalidateReason, EInvalidateWidgetReason::ChildOrder))
+            {
+                //process child order invalidation
+                //处理儿子顺序无效化
+                bIsInValidationWidgetValid = FastWidgetPathList->ProcessChildOrderInvalidation(WidgetIndex, ChildOrderInvalidationCallback);
+                if(bIsInvalidationWidgetValid)
+                {
+                    FSlateInvalidationWidgetList::InvalidationWidgetType& InvalidationWidget = (*FastWidgetPathList)[WidgetIndex];
+                    //处理完毕后，去除这个标识符
+                    EnumRemoveFlags(InvalidationWidget.CurrentInvalidateReason, EInvalidateWidgetReason::ChildOrder);
+                }
+                
+                //处理属性注册相关的
+                if(bIsInvalidationWidgetValid && EnumHasAnyFlags(CurrentInvalidateReason, EInvalidateWidgetReason::AttributeRegistration))
+                {
+                    FSlateInvalidationWidgetList::InvalidationWidgetType& InvalidationWidget = (*FastWidgetPathList)[WidgetIndex];
+                    FastWidgetPathList->ProcessAttributeRegistrationInvalidation(InvalidationWidget);
+                    EnumRemoveFlags(InvalidationWidget.CurrentInvalidateReason, EInvalidateWidgetReason::AttributeRegistration);
+                }
+            }
+        }
+    }
+}
+```
+
+
+
+其实，这里做了两个判断，如果根都不一样，直接全部处理掉，否则有针对性地处理。
+
+WidgetsNeedingPreUpdate弹出的是widget的索引，然后处理相应的(*FastWidgetPathList)[WidgetIndex]的widget。
+
+
+
+# ProcessAttributeUpdate
+
+处理属性更新
+
+
+
+```c++
+FSlateInvalidationWidgetList::FWidgetAttributeIterator AttributeItt = FastWidgetPathList->CreateWidgetAttributeIterator();//获取属性迭代器
+
+while(AttributeItt.IsValid())
+{
+    FSlateInvalidationWidgetList::InvalidationWidgetType& InvalidationWidget = (*FastWidgetPathList)[AttributeItt.GetCurrentIndex()];
+    
+    //获取widget
+    SWidget* WidgetPtr = InvalidationWidget.GetWidget();
+    
+    if(ensureAlways(WidgetPtr))
+    {
+        //如果不是直接的折叠
+        if(!InvalidationWidget.Visibility.IsCollapseIndirectly())
+        {
+            //如果我的父亲不是折叠的，那么更新我的可见状态
+            FSlateAttributeMetaData::UpdateOnlyVisibilityAttributes(*WidgetPtr, FSlateAttributeMetaData::EInvalidationPermission::AllowInvalidation);
+            
+            //不是折叠的
+            if(!InvalidationWidget.Visibility.IsCollapsed())
+            {
+                FSlateAttributeMetaData::UpdateExceptVisibilityAttributes(*WidgetPtr, FSlateAttributeMetaData::EInvalidationPermission::AllowInvalidation);
+                AttributeItt.Advance();
+            }
+            else
+            {
+                AttributeItt.AdvanceToNextSibling();
+            }
+        }
+        else
+        {
+            AttributeItt.Advance();
+        }
+    }
+}
+```
+
+
+
+# ProcessPrepassUpdate
+
+```c++
+FSlateInvalidationWidgetList::FIndexRange PreviousInvalidationWidgetRange;
+
+//previous invalidation widget range?
+
+//it update forward(smallest index to biggest)
+while(WidgetsNeedingPrepassUpdate->Num())
+{
+    //取出元素
+    const FSlateInvalidationWidgetPrepassHeap::FElement WidgetElement = WidgetsNeedingPrepassUpdate->HeapPop();
+    
+    if(PreviousInvalidationWidgetReason.IsValid())
+    {
+        //它已经被处理了，通过之前的slate prepass
+        if(PreviousInvalidationWidgetRange.Include(WidgetElement.GetWidgetSortOrder()))
+        {
+            continue;
+        }
+        FWidgetProxy& WidgetProxy = (*FastWidgetPathList)[WidgetElement.GetWidgetIndex()];
+        PreviousInvalidationWidgetReason = FSlateInvalidationWidgetList::FIndexRange(*FastWidgetPathList, WidgetProxy.Index, WidgetProxy.LeafMostChildIndex);
+        
+        //widget可以为null，如果它已经被移除，并且我们在slow path
+        if(SWidget* WidgetPtr = WidgetProxy.GetWidget())
+        {
+            //如果widget代理的可见性不是折叠的，并且是vola的prepass
+            if(!WidgetProxy.Visiblity.IsCollapsed() && WidgetProxy.bIsVolatilePrepass)
+            {
+                WidgetPtr->MarkPrepassAsDirty();
+            }
+            //运行invalidation，它将运行在process post update
+            //如果这里没有新的invalidation，那么widget的current invalidation应当为none，并且没有任何东西将执行
+            //那么，如果需要的话，ProcessPostUpdate将添加widget到FinalUpdateList在更新正确的顺序
+            WidgetProxy.ProcessPostInvalidation(*WidgetsNeedingPostUpdate, *FastWidgetPathList, *this);
+            EnumRemoveFlags(WidgetProxy.CurrentInvalidateReason, Slate::PostInvalidationReason);
+        }
+    }
+}
+```
+
+
+
+# ProcessPostUpdate
+
+```c++
+bool bWidgetNeedRepaint = false;
+
+//it update backward(biggest index to smallest)
+while(WidgetsNeedingPostUpdate->Num() && !bNeesSlowPath)
+{
+    const FSlateInvalidationWidgetPostHeap::FElement WidgetElement = WidgetsNeedingPostUpdate->HeapPop();
+    FWidgetProxy& WidgetProxy = (*FastWidgetPathList)[WidgetElement.GetWidgetIndex()];
+    
+    //widget可以为null，如果它被移除，并且我们在slow path
+    if(SWidget* WidgetPtr = WidgetProxy.GetWidget())
+    {
+        bWidgetsNeedRepaint |= WidgetProxy.ProcessPostInvalidation(*WidgetsNeedingPostUpdate, *FastWidgetPathList, *this);
+        EnumRemoveFlags(WidgetProxy.CurrentInvalidateReason, Slate::PostInvalidationReason);
+        
+        if(WidgetPtr->HasAnyUpdateFlags(EWidgetUpdateFlags::AnyUpdate) && WidgetProxy.Visibility.IsVisible())
+        {
+            //压入FinalUpdateList
+            //索引和顺序
+            FinalUpdateList.Emplace(WidgetElement.GetWidgetIndex(), WidgetElement.GetWidgetSortOrder());
+        }
+    }
+}
+
+WidgetsNeedingPostUpdate->Reset(true);
+
+return bWidgetsNeedRepaint
+```
 
 
 

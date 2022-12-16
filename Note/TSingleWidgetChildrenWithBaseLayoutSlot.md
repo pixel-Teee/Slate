@@ -92,6 +92,12 @@ class TSingleWidgetChildrenWithSlot : public FChildren, protected TSlotBase<Slot
 
 
 
+UE的Slate里重载了一些+ [] .操作符，用crtp可以让子类使用父类方法的时候，返回子类自身的指针，
+
+做些语法糖的效果。
+
+
+
 
 
 
